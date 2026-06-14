@@ -74,8 +74,8 @@ jobs:
         id: create_tag
         run: |
           # Configure Git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "MadTribe"
+          git config --global user.email "MadTribe@users.noreply.github.com"
           
           # Generate a unique tag based on date and run number (e.g., v2026.06.09-run42)
           TAG_NAME="v$(date +'%Y.%m.%d')-run${{ github.run_number }}"
@@ -91,8 +91,8 @@ jobs:
           PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN }}
           DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "MadTribe"
+          git config --global user.email "MadTribe@users.noreply.github.com"
           
           TARGET_REPO="https://x-access-token:${PROD_REPO_TOKEN}@github.com/madtribe/test-actions-prod.git"
           git remote add prod $TARGET_REPO
