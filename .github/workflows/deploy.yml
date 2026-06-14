@@ -107,11 +107,8 @@ jobs:
           echo "Token length: ${#PROD_REPO_TOKEN}"
           echo "Token first chars: ${PROD_REPO_TOKEN:0:4}****"
           
-          
-          
           git config --global user.name "MadTribe"
           git config --global user.email "MadTribe@users.noreply.github.com"
-          
           
           # Nuke ALL GitHub http config - the heavy-handed but reliable approach
           git config --global --remove-section http.https://github.com 2>/dev/null || true     
@@ -120,11 +117,11 @@ jobs:
           git config --global --unset-all credential.helper 2>/dev/null || true
           unset GIT_ASKPASS
 
-          TARGET_REPO="https://user:${PROD_REPO_TOKEN}@github.com/madtribe/test-actions-prod.git"
-         
+          # CORRECTED: Use x-access-token as the username
+          TARGET_REPO="https://x-access-token:${PROD_REPO_TOKEN}@github.com/madtribe/test-actions-prod.git"
+        
           git remote remove prod 2>/dev/null || true
           git remote add prod "$TARGET_REPO"
-
           
           echo "🚀 Deploying new release using tag ${{ env.RELEASE_TAG }}..."
           git push prod HEAD:${DESTINATION_BRANCH} --force
