@@ -94,6 +94,10 @@ jobs:
           git config --global user.name "MadTribe"
           git config --global user.email "MadTribe@users.noreply.github.com"
           
+          # Remove the extra header left by actions/checkout
+          git config --global --unset-all http.https://github.com/.extraheader
+
+
           TARGET_REPO="https://x-access-token:${PROD_REPO_TOKEN}@github.com/madtribe/test-actions-prod.git"
           git remote add prod $TARGET_REPO
           
