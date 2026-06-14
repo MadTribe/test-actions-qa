@@ -91,6 +91,13 @@ jobs:
           PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN }}
           DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
         run: |
+          set -x
+          
+          echo "Token length: ${#PROD_REPO_TOKEN}"
+          echo "Token first chars: ${PROD_REPO_TOKEN:0:4}****"
+          
+          
+          
           git config --global user.name "MadTribe"
           git config --global user.email "MadTribe@users.noreply.github.com"
           
@@ -99,7 +106,10 @@ jobs:
 
 
           TARGET_REPO="https://x-access-token:${PROD_REPO_TOKEN}@github.com/madtribe/test-actions-prod.git"
-          git remote add prod $TARGET_REPO
+         
+          git remote remove prod 2>/dev/null || true
+          git remote add prod "$TARGET_REPO"
+
           
           echo "🚀 Deploying new release using tag ${{ env.RELEASE_TAG }}..."
           git push prod HEAD:${DESTINATION_BRANCH} --force
