@@ -44,26 +44,29 @@ jobs:
 
           gh api "repos/${{ github.repository }}/commits/$COMMIT_SHA/check-runs?per_page=100" --jq '.check_runs' > /tmp/checks.json
 
-          CHECK_COUNT=$(jq '. | length' /tmp/checks.json)
+          WORKFLOW_NAME="deploy"  # The name of THIS workflow
+          jq --arg wf "$WORKFLOW_NAME" '[.[] | select(.name != $wf)]' /tmp/checks.json > /tmp/filtered_checks.json
+
+          CHECK_COUNT=$(jq '. | length' /tmp/filtered_checks.json)
           if [ "$CHECK_COUNT" -eq 0 ]; then
             echo "❌ ERROR: No check runs found for commit $COMMIT_SHA. Release aborted."
             exit 1
           fi
 
           echo "Found $CHECK_COUNT check runs:"
-          jq -r '.[] | "  - \(.name): status=\(.status), conclusion=\(.conclusion // "none")"' /tmp/checks.json
+          jq -r '.[] | "  - \(.name): status=\(.status), conclusion=\(.conclusion // "none")"' /tmp/filtered_checks.json
 
-          INCOMPLETE=$(jq --arg cid "$CURRENT_CHECK_SUITE_ID" '[.[] | select(.check_suite.id != ($cid | tonumber) and .status != "completed")] | length' /tmp/checks.json)
+          INCOMPLETE=$(jq --arg cid "$CURRENT_CHECK_SUITE_ID" '[.[] | select(.check_suite.id != ($cid | tonumber) and .status != "completed")] | length' /tmp/filtered_checks.json)
           if [ "$INCOMPLETE" -gt 0 ]; then
             echo "❌ ERROR: Some checks are still running or queued. Release aborted."
-            jq -r --arg cid "$CURRENT_CHECK_SUITE_ID" '.[] | select(.check_suite.id != ($cid | tonumber) and .status != "completed") | "  - \(.name): \(.status)"' /tmp/checks.json
+            jq -r --arg cid "$CURRENT_CHECK_SUITE_ID" '.[] | select(.check_suite.id != ($cid | tonumber) and .status != "completed") | "  - \(.name): \(.status)"' /tmp/filtered_checks.json
             exit 1
           fi
 
-          FAILED=$(jq --arg cid "$CURRENT_CHECK_SUITE_ID" '[.[] | select(.check_suite.id != ($cid | tonumber) and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))] | length' /tmp/checks.json)
+          FAILED=$(jq --arg cid "$CURRENT_CHECK_SUITE_ID" '[.[] | select(.check_suite.id != ($cid | tonumber) and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))] | length' /tmp/filtered_checks.json)
           if [ "$FAILED" -gt 0 ]; then
             echo "❌ ERROR: Some checks failed. Release aborted."
-            jq -r --arg cid "$CURRENT_CHECK_SUITE_ID" '.[] | select(.check_suite.id != ($cid | tonumber) and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")) | "  - \(.name): \(.conclusion)"' /tmp/checks.json
+            jq -r --arg cid "$CURRENT_CHECK_SUITE_ID" '.[] | select(.check_suite.id != ($cid | tonumber) and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out")) | "  - \(.name): \(.conclusion)"' /tmp/filtered_checks.json
             exit 1
           fi
 
