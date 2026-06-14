@@ -89,7 +89,7 @@ jobs:
           git push origin "$TAG_NAME"
       - name: Debug token access
         env:
-          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_TOKEN }}
+          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN}}
         run: |
           # Test API access
           curl -H "Authorization: token ${PROD_REPO_TOKEN}" \
@@ -99,7 +99,7 @@ jobs:
       # --- STEP 3: PUSH TO PRODUCTION REPO ---
       - name: Push to Production Repo
         env:
-          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_TOKEN }}
+          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN }}
           DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
         run: |
           set -x
