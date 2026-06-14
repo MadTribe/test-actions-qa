@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
   checks: read
   actions: read
 
@@ -99,7 +100,7 @@ jobs:
       # --- STEP 3: PUSH TO PRODUCTION REPO ---
       - name: Push to Production Repo
         env:
-          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN }}
+          PROD_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
         run: |
           set -x
@@ -118,7 +119,7 @@ jobs:
           unset GIT_ASKPASS
 
           # CORRECTED: Use x-access-token as the username
-          TARGET_REPO="https://MadTribe:${PROD_REPO_TOKEN}@github.com/MadTribe/test-actions-prod.git"
+          TARGET_REPO="https://x-access-token:${PROD_REPO_TOKEN}@github.com/MadTribe/test-actions-prod.git"
         
           git remote remove prod 2>/dev/null || true
           git remote add prod "$TARGET_REPO"
