@@ -12,14 +12,23 @@ on:
         required: true
         default: 'main'
 
-permissions:
-  contents: write
-  id-token: write
-  checks: read
-  actions: read
+# Only run if the current repository name contains "qa"
+jobs:
+  deploy:
+    if: contains(github.repository, 'qa')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      checks: read
+      actions: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Environment variables for git user and prod repo
+  GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+  GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+  PROD_REPO_SSH_URL: ${{ secrets.PROD_REPO_SSH_URL }}
 
 jobs:
   deploy:
@@ -28,11 +37,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # Fetch all history and tags so we can find tags and push them
           fetch-depth: 0 
           ref: ${{ github.event.inputs.source_branch }}
 
-      # --- STEP 1: SAFETY CHECKS ---
+      # --- STEP 1: SAFETY CHECKS (unchanged) ---
       - name: Verify tests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,7 +53,7 @@ jobs:
 
           gh api "repos/${{ github.repository }}/commits/$COMMIT_SHA/check-runs?per_page=100" --jq '.check_runs' > /tmp/checks.json
 
-          WORKFLOW_NAME="deploy"  # The name of THIS workflow
+          WORKFLOW_NAME="deploy"
           jq --arg wf "$WORKFLOW_NAME" '[.[] | select(.name != $wf)]' /tmp/checks.json > /tmp/filtered_checks.json
 
           CHECK_COUNT=$(jq '. | length' /tmp/filtered_checks.json)
@@ -73,32 +81,22 @@ jobs:
 
           echo "✅ All checks passed!"
 
-      # --- STEP 2: TAGGING ---
+      # --- STEP 2: TAGGING (also pushes tag to origin) ---
       - name: Create and Push Release Tag
         id: create_tag
         run: |
-          # Configure Git
-          git config --global user.name "MadTribe"
-          git config --global user.email "MadTribe@users.noreply.github.com"
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
           
-          # Generate a unique tag based on date and run number (e.g., v2026.06.09-run42)
           TAG_NAME="v$(date +'%Y.%m.%d')-run${{ github.run_number }}"
           echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
           
           echo "Creating tag: $TAG_NAME"
           git tag -a "$TAG_NAME" -m "Production Release via GitHub Actions"
           git push origin "$TAG_NAME"
-      - name: Debug token access
-        env:
-          PROD_REPO_TOKEN: ${{ secrets.PROD_REPO_ACCESS_TOKEN}}
-        run: |
-          # Test API access
-          curl -H "Authorization: token ${PROD_REPO_TOKEN}" \
-            https://api.github.com/repos/MadTribe/test-actions-prod | jq '.permissions'
-          curl -H "Authorization: token ${PROD_REPO_TOKEN}" \
-            https://api.github.com/repos/MadTribe/test-actions-prod 
-      # --- STEP 3: PUSH TO PRODUCTION REPO ---
-      - name: Setup SSH and Push
+
+      # --- STEP 3: PUSH TO PRODUCTION REPO (including tags) ---
+      - name: Setup SSH and Push to Prod
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
@@ -106,7 +104,7 @@ jobs:
           # Write the key to a file (preserve exact format)
           echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
           
-          # Convert line endings if needed (important!)
+          # Convert line endings if needed
           tr -d '\r' < /tmp/deploy_key > /tmp/deploy_key_unix
           mv /tmp/deploy_key_unix /tmp/deploy_key
           
@@ -120,10 +118,13 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan github.com >> ~/.ssh/known_hosts
           
-          # Configure git
-          git config --global user.name "MadTribe"
-          git config --global user.email "MadTribe@users.noreply.github.com"
+          # Configure git using environment variables
+          git config --global user.name "${{ env.GIT_USER_NAME }}"
+          git config --global user.email "${{ env.GIT_USER_EMAIL }}"
           
-          # Push using SSH
-          git remote add prod git@github.com:madtribe/test-actions-prod.git
+          # Add remote using the environment variable for prod repo URL
+          git remote add prod "${{ env.PROD_REPO_SSH_URL }}"
+          
+          # Push both the branch and the tags
           git push prod HEAD:${DESTINATION_BRANCH} --force
+          git push prod --tags
