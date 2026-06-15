@@ -98,14 +98,32 @@ jobs:
           curl -H "Authorization: token ${PROD_REPO_TOKEN}" \
             https://api.github.com/repos/MadTribe/test-actions-prod 
       # --- STEP 3: PUSH TO PRODUCTION REPO ---
-      - name: Push to Production Repo
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Git Push
+      - name: Setup SSH and Push
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DESTINATION_BRANCH: ${{ github.event.inputs.destination_branch }}
         run: |
+          # Write the key to a file (preserve exact format)
+          echo "$SSH_PRIVATE_KEY" > /tmp/deploy_key
+          
+          # Convert line endings if needed (important!)
+          tr -d '\r' < /tmp/deploy_key > /tmp/deploy_key_unix
+          mv /tmp/deploy_key_unix /tmp/deploy_key
+          
+          chmod 600 /tmp/deploy_key
+          
+          # Start ssh-agent and add key
+          eval $(ssh-agent -s)
+          ssh-add /tmp/deploy_key
+          
+          # Add GitHub to known hosts
+          mkdir -p ~/.ssh
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          
+          # Configure git
           git config --global user.name "MadTribe"
           git config --global user.email "MadTribe@users.noreply.github.com"
+          
+          # Push using SSH
           git remote add prod git@github.com:madtribe/test-actions-prod.git
-          git push prod HEAD:main --force
+          git push prod HEAD:${DESTINATION_BRANCH} --force
